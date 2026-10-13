@@ -389,9 +389,16 @@ class NativeLmViewModel(app: Application) : ViewModel() {
         best?.id
     }
 
-    /** One-tap convenience: download the device's recommended ungated model. No-op if none fits. */
+    /**
+     * Zero-config convenience: download the device's recommended ungated model
+     * and activate it (load into memory) as soon as the download succeeds, so
+     * the onboarding -> chat path needs no manual "Set active" tap. No-op if
+     * no model fits. Only this call site auto-activates — a plain [download]
+     * (manual browsing in Model Management) still requires the existing
+     * explicit "Set active" step, unchanged from upstream.
+     */
     fun downloadRecommended() {
-        recommendedModelId?.let { download(it) }
+        recommendedModelId?.let { download(it, activateOnSuccess = true) }
     }
 
     /** Device-tiered RAG embedder recommendation (USE-Lite / EmbeddingGemma @dim + reranker). */
@@ -784,7 +791,7 @@ class NativeLmViewModel(app: Application) : ViewModel() {
 
     // ---- Model management ----
 
-    fun download(modelId: String) {
+    fun download(modelId: String, activateOnSuccess: Boolean = false) {
         val descriptor = catalog.byId(modelId) ?: return
         if (downloadJobs[modelId]?.isActive == true) return
 
@@ -822,6 +829,7 @@ class NativeLmViewModel(app: Application) : ViewModel() {
                         is DownloadState.Success -> {
                             transientStatus.remove(modelId)
                             refreshModels()
+                            if (activateOnSuccess) setActive(modelId)
                         }
                         is DownloadState.Error -> {
                             Napier.e(tag = TAG) { "Download failed for $modelId: ${state.message}" }
