@@ -63,6 +63,14 @@ fun NativeLmApp(vm: NativeLmViewModel, startRoute: String) {
             OnboardingScreen(
                 onFinish = {
                     vm.completeOnboarding()
+                    // Crampon : zero-config -- demarre le telechargement du
+                    // meilleur modele non-gated pour cet appareil des la fin
+                    // de l'onboarding, sans attendre un tap manuel sur la
+                    // liste de Model Management. L'ecran Models affiche deja
+                    // une barre de progression pour un ModelStatus.Downloading
+                    // en cours, donc l'utilisateur arrive directement sur le
+                    // telechargement demarre plutot que sur une liste vide.
+                    vm.downloadRecommended()
                     nav.navigate(shellRoute(Destination.Models)) {
                         popUpTo(ROUTE_ONBOARDING) { inclusive = true }
                     }
