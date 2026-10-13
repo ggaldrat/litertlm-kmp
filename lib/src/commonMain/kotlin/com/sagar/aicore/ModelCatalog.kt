@@ -59,6 +59,24 @@ data class ModelDescriptor(
      * to the system prompt ONLY when this is true. Defaults to false (off).
      */
     val supportsCharts: Boolean = false,
+    /**
+     * Measured intelligence score from a real on-device benchmark (e.g.
+     * ArtificialAnalysis x Liquid AI's Pipette mobile-phone benchmark, 16K
+     * context ceiling, 0-100ish scale) -- null when no such measurement
+     * exists for this model yet. Lets [recommendedModelId]-style selection
+     * logic prefer a model with evidence of real quality over the naive
+     * "biggest RAM floor that fits" heuristic, which silently assumes bigger
+     * always means better. Added for Crampon; upstream litertlm-kmp does not
+     * use this field.
+     */
+    val benchmarkScore: Double? = null,
+    /**
+     * Measured peak process memory (GB) from the same on-device benchmark as
+     * [benchmarkScore] -- used as a tie-breaker (lower wins) when two models
+     * share the same score, and independently useful since it reflects real
+     * runtime footprint rather than file size. Null when unmeasured.
+     */
+    val benchmarkPeakMemoryGb: Double? = null,
 )
 
 enum class ModelFormat {

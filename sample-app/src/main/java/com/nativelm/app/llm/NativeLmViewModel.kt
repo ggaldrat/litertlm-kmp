@@ -354,19 +354,39 @@ class NativeLmViewModel(app: Application) : ViewModel() {
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     /**
-     * The best "no account needed" model for this device: the largest **ungated**
-     * (Apache-2.0 / MIT) LLM whose RAM floor the device clears. Surfaced as the
-     * "Recommended" pick in Model Management so a fresh install — including a Play
-     * Store user with no Hugging Face account — can get a working model with a
-     * single tap: no token, no license to accept. Null only on devices below even
-     * the smallest model's RAM floor. Device RAM is fixed for the process, so this
-     * is computed once on first read.
+     * The best "no account needed" model for this device: an **ungated**
+     * (Apache-2.0 / MIT / etc.) LLM whose RAM floor the device clears. Surfaced
+     * as the "Recommended" pick in Model Management so a fresh install —
+     * including a Play Store user with no Hugging Face account — can get a
+     * working model with a single tap: no token, no license to accept. Null
+     * only on devices below even the smallest model's RAM floor. Device RAM is
+     * fixed for the process, so this is computed once on first read.
+     *
+     * Selection order (Crampon correction, 13 oct. 2026 — see doc/mvp.md
+     * "Logique de selection corrigee" in the Crampon project for the full
+     * rationale): among eligible models, prefer the one with the highest
+     * measured [ModelDescriptor.benchmarkScore] (ArtificialAnalysis x Liquid
+     * AI's on-device Pipette benchmark), tie-broken by the lowest measured
+     * [ModelDescriptor.benchmarkPeakMemoryGb]. "Largest RAM floor that fits"
+     * silently assumes bigger means better, which is false inside the measured
+     * data: a smaller, faster, equally-scored model shouldn't lose to a bigger
+     * one just because more RAM happens to be available. Only when **no**
+     * eligible model has a benchmark score does this fall back to the
+     * original "largest RAM floor" heuristic, for lack of any better signal.
      */
     val recommendedModelId: String? by lazy {
-        catalog.byRole(ModelRole.LLM_PRIMARY)
+        val eligible = catalog.byRole(ModelRole.LLM_PRIMARY)
             .filter { !it.requiresAuth && deviceRamMb >= it.minDeviceRamMb }
-            .maxByOrNull { it.minDeviceRamMb }
-            ?.id
+        val scored = eligible.filter { it.benchmarkScore != null }
+        val best = if (scored.isNotEmpty()) {
+            scored.maxWithOrNull(
+                compareBy<ModelDescriptor> { it.benchmarkScore }
+                    .thenBy { -(it.benchmarkPeakMemoryGb ?: 0.0) }
+            )
+        } else {
+            eligible.maxByOrNull { it.minDeviceRamMb }
+        }
+        best?.id
     }
 
     /** One-tap convenience: download the device's recommended ungated model. No-op if none fits. */
@@ -1827,6 +1847,7 @@ class NativeLmViewModel(app: Application) : ViewModel() {
 
     private fun displayName(d: ModelDescriptor): String = when (d.id) {
         "qwen3-0_6b-litertlm" -> "Qwen3 0.6B"
+        "lfm2_5-2_6b-litertlm" -> "LFM2.5 2.6B"
         "gemma3-1b-it-int4-litertlm" -> "Gemma 3 1B (INT4)"
         "deepseek-r1-distill-qwen-1_5b-litertlm" -> "DeepSeek-R1 Distill 1.5B"
         "gemma-4-e2b-it-litertlm" -> "Gemma 4 E2B"
