@@ -93,6 +93,10 @@ fun ModelManagementScreen(
 
     val context = LocalContext.current
     var advancedExpanded by remember { mutableStateOf(hasToken) }
+    // Crampon : zero-config par defaut -- la liste cliquable de modeles ne
+    // s'affiche que si l'utilisateur demande explicitement a la voir. Par
+    // defaut, une seule carte passive montre le choix deja fait pour lui.
+    var browseAllExpanded by remember { mutableStateOf(false) }
     var licensePrompt by remember { mutableStateOf<ModelUi?>(null) }
     // Gated models need their HF license accepted with the token's account;
     // intercept the download to remind the user (with a link) rather than letting
@@ -143,17 +147,31 @@ fun ModelManagementScreen(
             contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            item {
-                SectionHeader("Recommended")
-                Text(
-                    "Free, open models — no account needed. Downloads start right away.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 4.dp, bottom = 4.dp),
-                )
-            }
-            items(recommendedLlms, key = { it.descriptor.id }) { model ->
-                ModelCard(model, vm, onDownloadRequest, recommended = model.descriptor.id == recommendedId)
+            if (browseAllExpanded) {
+                item {
+                    SectionHeader("Recommended")
+                    Text(
+                        "Free, open models — no account needed. Downloads start right away.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 4.dp, bottom = 4.dp),
+                    )
+                }
+                items(recommendedLlms, key = { it.descriptor.id }) { model ->
+                    ModelCard(model, vm, onDownloadRequest, recommended = model.descriptor.id == recommendedId)
+                }
+                item {
+                    TextButton(onClick = { browseAllExpanded = false }) { Text("Hide model list") }
+                }
+            } else {
+                val recommendedModel = recommendedLlms.find { it.descriptor.id == recommendedId }
+                item {
+                    RecommendedConfirmationCard(
+                        model = recommendedModel,
+                        onRetry = { recommendedId?.let(vm::download) },
+                        onBrowseAll = { browseAllExpanded = true },
+                    )
+                }
             }
 
             item {
@@ -236,6 +254,85 @@ fun ModelManagementScreen(
                 }) { Text("Open license page") }
             },
         )
+    }
+}
+
+/**
+ * Crampon's zero-config default view: a single passive card instead of the
+ * clickable model list, showing the device's recommended model and its live
+ * download state. No tap required for the happy path — [onDownloadRequest]
+ * in the onboarding flow already started the download before this screen
+ * ever appears, so by the time a user sees this, it is usually already
+ * [ModelStatus.Downloading] or further along. The only taps offered are
+ * escape hatches: retry on failure, or browse the full list for manual control.
+ */
+@Composable
+private fun RecommendedConfirmationCard(
+    model: ModelUi?,
+    onRetry: () -> Unit,
+    onBrowseAll: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            if (model == null) {
+                Text(
+                    "No model fits this device yet.",
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            } else {
+                val name = model.displayName
+                when (val status = model.status) {
+                    is ModelStatus.Downloading -> {
+                        Text("Setting up $name for your device…", style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.height(12.dp))
+                        val hasTotal = status.totalMb > 0
+                        if (hasTotal) {
+                            LinearProgressIndicator(
+                                progress = { status.progress.coerceIn(0f, 1f) },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        } else {
+                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = if (hasTotal) "${status.downloadedMb} / ${status.totalMb} MB"
+                            else "${status.downloadedMb} MB",
+                            style = MaterialTheme.typography.labelSmall.copy(fontFamily = JetBrainsMono),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    ModelStatus.Downloaded, ModelStatus.Active -> {
+                        Text("Crampon picked $name for your device.", style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Ready — no account, no license to accept.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    is ModelStatus.Failed -> {
+                        Text("Couldn't set up $name", style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            status.message,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Button(onClick = onRetry) { Text("Retry") }
+                    }
+                    ModelStatus.NotDownloaded -> {
+                        Text("Preparing $name…", style = MaterialTheme.typography.titleMedium)
+                    }
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            TextButton(onClick = onBrowseAll) { Text("Choose a different model") }
+        }
     }
 }
 
