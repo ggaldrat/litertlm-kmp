@@ -39,29 +39,18 @@ class NativeLmModelCatalog : ModelCatalog {
             requiresAuth = false,
             supportsVision = false,
         ),
-        // ── Small (~4 GB) — LFM2.5-2.6B, text, ungated (LFM1.0 -- commercial
-        // use free under $10M annual revenue, not a blocker for Crampon). Added
-        // for Crampon from ArtificialAnalysis x Liquid AI's Pipette mobile
-        // benchmark (iPhone 17 Pro, 13 oct. 2026): ties the highest score
-        // measured (63/100 @ 16K context) while using 2.3 GB peak memory and
-        // 8.0s end-to-end -- far more efficient than every other model that
-        // reaches the same score (Nanbeige4.2-3B: same 63 but 4.0 GB/21.4s;
-        // Qwen3.5 9B: 61 but 6.9 GB/>25s). Int4 file is 1.59 GB; minDeviceRamMb
-        // set well above the measured peak to leave OS/app headroom, matching
-        // this catalog's existing margin convention. ──
-        ModelDescriptor(
-            id = "lfm2_5-2_6b-litertlm",
-            url = "https://huggingface.co/litert-community/LFM2.5-2.6B/resolve/main/LFM2.5-2.6B_int4.litertlm?download=true",
-            fileName = "LFM2.5-2.6B_int4.litertlm",
-            sizeBytes = 1_668_151_680L,
-            format = ModelFormat.LITERTLM,
-            role = ModelRole.LLM_PRIMARY,
-            minDeviceRamMb = 4000,
-            requiresAuth = false,
-            supportsVision = false,
-            benchmarkScore = 63.0,
-            benchmarkPeakMemoryGb = 2.3,
-        ),
+        // LFM2.5-2.6B WAS added here (13 oct. 2026) based on its ArtificialAnalysis
+        // x Liquid AI Pipette mobile benchmark score (63/100, highest measured) --
+        // then REMOVED the same day after confirming on a real device that its chat
+        // session never reaches SessionState.Ready in this engine ("Chat session is
+        // not ready", permanently, not a startup race). The Pipette score was
+        // measured on Liquid AI's own runtime, not LiteRT-LM -- a high score there
+        // is evidence of model quality, NOT of engine compatibility here. Lesson:
+        // a benchmarkScore alone is not enough to trust a model works in THIS
+        // engine; it must also be confirmed to actually complete a chat turn before
+        // being added. Only Qwen3-0.6B and DeepSeek-R1-Distill-1.5B below have that
+        // confirmation today (real tok/s in BENCHMARKS.md, measured by the original
+        // litertlm-kmp author through this exact engine).
         // ── Small (~4 GB) — Gemma 3 1B INT4, text (~557 MB). Gemma-licensed. ──
         ModelDescriptor(
             id = "gemma3-1b-it-int4-litertlm",

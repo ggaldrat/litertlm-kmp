@@ -1855,7 +1855,6 @@ class NativeLmViewModel(app: Application) : ViewModel() {
 
     private fun displayName(d: ModelDescriptor): String = when (d.id) {
         "qwen3-0_6b-litertlm" -> "Qwen3 0.6B"
-        "lfm2_5-2_6b-litertlm" -> "LFM2.5 2.6B"
         "gemma3-1b-it-int4-litertlm" -> "Gemma 3 1B (INT4)"
         "deepseek-r1-distill-qwen-1_5b-litertlm" -> "DeepSeek-R1 Distill 1.5B"
         "gemma-4-e2b-it-litertlm" -> "Gemma 4 E2B"
